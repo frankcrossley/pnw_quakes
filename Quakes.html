@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>PNW Quakes This Week</title>
+    <meta charset="utf-8" />
+
+    <!-- Leaflet styles and code. Place in the <head></head> element. -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+
+    <!-- jQuery is a library that simplifies many things in JavaScript.
+	     We'll use it to retrieve data from the web. -->
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
+    <script src="./p5.min.js"></script>
+    <!-- this should be unnecessary in this code, as we aren't using p5.js...
+       but since I'm showing you the code running in the p5 editor,
+       the editor expects p5.js to be here...
+       otherwise, it gives you a "TypeError: window.p5 is undefined".
+       We won't use any of p5.js's commands, though! -->
+  </head>
+
+  <body>
+    <div id="mapid" style="width: 600px; height: 400px;"></div>
+    <!-- Our web map will get placed into this div element -->
+
+    <div id="controls" style="margin: 15px;">
+      <button id="showAllquakesButton">Show All Quakes</button>
+
+      <span style="display:inline-block; width: 30px"></span>
+      <input type="text" id="highlightquakesTextEntry" placeholder="Greatest Magnitude (0-4) " />
+      <button id="highlightquakesButton">Highlight</button>
+    </div>
+
+    <script>
+      // Make a Leaflet map with L.map().
+      // Store the map in the variable 'map'.
+      // "mapid" is the 'id' of the DOM element to contain the map.
+      var map = L.map('mapid', {
+          center: [49.265637, -123.256113],
+          zoom: 4
+        } // this object holds map options
+      );
+
+      var topoTiles = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+          maxZoom: 17,
+        }
+      ).addTo(map);
+
+      var quakeMarkerOptions = {
+        radius: 4,
+        fillColor: "#007800",
+        color: "#000",
+        weight: 1,
+        opacity: 0.2,
+        fillOpacity: 0.2
+      };
+
+      function onEachquake(feature, layer) {
+        // does this quake even have a property named ?
+        if (feature.properties && feature.properties.mag) {
+          layer.bindTooltip(feature.properties.mag);
+        }
+      }
+
+      function quakePointToLayer(feature, latlng) {
+        return L.circleMarker(
+          latlng,
+          quakeMarkerOptions
+        );
+      }
+
+      function quakesToFilter(feature, layer) {
+        if (ToHighlight === 0) {
+          return true;
+          // In this case, we're not highlighting anything, so draw everything.
+        } else if (feature.properties && feature.properties.mag) {
+          // We just checked to make sure there are properties to avoid an error
+          //   by asking for the . when there are no properties.
+          // Now, we need to check to see if the . *includes* the search string we're
+          //   trying to highlight.
+          return feature.properties.mag <= ToHighlight;
+          // We ignore uppercase/lowercase differences.
+        } else {
+          return false;
+          // This is for features that lack properties.
+          // Don't display them.
+        }
+      }
+
+      var lastLayerAdded = {};
+
+      function addquakes() {
+        if (map.hasLayer(lastLayerAdded)) {
+          map.removeLayer(lastLayerAdded);
+        }
+        lastLayerAdded = L.geoJSON(quakeGeoJSONdata, {
+          pointToLayer: quakePointToLayer,
+          onEachFeature: onEachquake,
+          filter: quakesToFilter
+        });
+        lastLayerAdded.addTo(map);
+      };
+
+      var ToHighlight = 0;
+      // This is set by someone pressing the highlight button.
+      // If it's an empty string, then just draw everything.
+
+      function highlightquakes() {
+        ToHighlight = document
+          .getElementById("highlightquakesTextEntry")
+          .value;
+        addquakes();
+        ToHighlight = 0; // reset so that "Show All quakes" works.
+      }
+
+      var quakeGeoJSONdata;
+
+
+      $.getJSON("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
+        function(data) {
+          // Store data for later:
+          quakeGeoJSONdata = data;
+          // Create event listener for ShowAllquakes Button:
+          document
+            .getElementById("showAllquakesButton")
+            .addEventListener("click", addquakes);
+
+          document
+            .getElementById("highlightquakesButton")
+            .addEventListener("click", highlightquakes);
+
+        }
+      );
+    </script>
+  </body>
+</html>
